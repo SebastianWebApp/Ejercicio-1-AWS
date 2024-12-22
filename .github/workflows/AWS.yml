@@ -1,0 +1,39 @@
+name: Push-AWS  # Define el nombre del flujo de trabajo. Este flujo de trabajo se ejecuta para desplegar en EC2.
+
+# Trigger deployment only on push to main branch
+on:
+  push:
+    branches:
+      - main  # El flujo de trabajo se activará solo cuando se realice un push a la rama 'main'.
+
+jobs:
+  deploy:  # Define un trabajo llamado 'deploy' que será ejecutado en este flujo de trabajo.
+    name: Deploy to EC2 on master branch push  # Nombre descriptivo del trabajo, indicando que es para EC2.
+    runs-on: ubuntu-latest  # Especifica que el trabajo se ejecutará en una máquina virtual con la última versión de Ubuntu.
+
+    steps:  # Lista de pasos que se ejecutarán en el trabajo.
+      - name: Checkout the files  # Primer paso, donde se descargan los archivos del repositorio.
+        uses: actions/checkout@v2  # Acción predefinida para hacer checkout (descargar) del código del repositorio.
+
+      - name: Deploy to Server 1  # Segundo paso, donde se despliegan los archivos al servidor EC2.
+        uses: easingthemes/ssh-deploy@main  # Usa una acción de GitHub para realizar el despliegue mediante SSH.
+        env:  # Define las variables de entorno necesarias para la conexión SSH.
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # La clave privada SSH para autenticar la conexión con EC2.
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}  # El DNS público de la instancia EC2 (dirección IP).
+          REMOTE_USER: ${{ secrets.USERNAME }}  # El nombre de usuario para acceder a la instancia EC2.
+          TARGET: ${{ secrets.TARGET_DIR }}  # Directorio de destino en el servidor EC2 donde se desplegarán los archivos.
+
+      - name: Executing remote ssh commands using ssh key  # Tercer paso, ejecutar comandos remotos en el servidor EC2.
+        uses: appleboy/ssh-action@master  # Acción para ejecutar comandos remotos SSH.
+        with:  # Define los parámetros necesarios para la conexión SSH.
+          host: ${{ secrets.HOST_DNS }}  # Dirección DNS pública de la instancia EC2.
+          username: ${{ secrets.USERNAME }}  # Nombre de usuario para la conexión SSH.
+          key: ${{ secrets.EC2_SSH_KEY }}  # La clave privada SSH.
+          script: |  # Bloque de comandos que se ejecutarán en el servidor EC2.
+            sudo apt-get -y update  # Actualiza los paquetes del sistema operativo en la instancia EC2.
+            sudo apt-get install -y apache2  # Instala Apache, el servidor web.
+            sudo systemctl start apache2  # Inicia el servicio Apache.
+            sudo systemctl enable apache2  # Asegura que Apache se inicie automáticamente en cada arranque.
+            cd home  # Cambia al directorio 'home'. (Nota: este comando podría necesitar revisión, debería ser '/home' o un directorio específico)
+            sudo mv * /var/www/html  # Mueve todos los archivos al directorio donde Apache sirve los archivos web (/var/www/html).
+
